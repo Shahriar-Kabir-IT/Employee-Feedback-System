@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Employee mood feedback system with bilingual support">
+  <title>Employee Feedback</title>
+  <style>
+    :root {
+      --primary-blue: #2d8fd4;
+      --accent-blue: #1ea2fa;
+      --success-green: #28a745;
+      --error-red:rgb(0, 0, 0);
+      --hover-green: #0cdf17;
+      --white: #ffffff;
+      --light-gray: #ccc;
+      --dark-text: #000000;
+      --shadow-light: rgba(255, 255, 255, 0.8);
+      --shadow-dark: rgba(0, 0, 0, 0.2);
+      --border-radius: 6px;
+      --border-radius-large: 12px;
+      --transition-fast: 0.2s;
+      --transition-medium: 0.3s;
+      --transition-slow: 0.4s;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, var(--primary-blue) 0%, #1e6bb8 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      padding: 20px;
+    }
+
+    h2 {
+      color: var(--dark-text);
+      font-size: clamp(24px, 4vw, 28px);
+      margin-bottom: 20px;
+      margin-top: -15px;
+      font-weight: 600;
+      text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.1);
+    }
+
+    .mood {
+      display: flex;
+      justify-content: center;
+      gap: clamp(40px, 8vw, 100px);
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+
+    .mood-option {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+
+    .mood-option:hover {
+      transform: translateY(-5px);
+    }
+
+    .mood img {
+      width: clamp(80px, 15vw, 120px);
+      height: clamp(80px, 15vw, 120px);
+      object-fit: cover;
+      border: 4px solid transparent;
+      border-radius: 50%;
+      transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-medium);
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    }
+
+    .mood-option:hover img {
+      transform: scale(1.05);
+    }
+
+    .mood-label {
+      margin-top: 10px;
+      font-weight: 500;
+      color: var(--white);
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .selected img {
+      border-color: var(--white);
+      background-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 25px 5px var(--shadow-light);
+      transform: scale(1.15);
+    }
+
+    .form-section {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      border-radius: var(--border-radius-large);
+      padding: 25px;
+      margin-top: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-section h3 {
+      color: var(--white);
+      margin-bottom: 20px;
+      font-size: 18px;
+      font-weight: 500;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    input[type="text"], select {
+      padding: 12px 15px;
+      font-size: 16px;
+      border: 2px solid var(--light-gray);
+      border-radius: var(--border-radius);
+      background: var(--white);
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      outline: none;
+    }
+
+    input[type="text"]:focus, select:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(30, 162, 250, 0.1);
+    }
+
+    input[type="text"] {
+      width: 180px;
+    }
+
+    select {
+      width: 120px;
+    }
+
+    .submit-btn {
+      padding: 12px 30px;
+      font-size: 16px;
+      background: linear-gradient(135deg, var(--accent-blue) 0%, #0d7ec7 100%);
+      color: var(--white);
+      border: none;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 15px rgba(30, 162, 250, 0.3);
+    }
+
+    .submit-btn:hover {
+      background: linear-gradient(135deg, var(--hover-green) 0%, #0bb812 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(12, 223, 23, 0.4);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 20px 30px;
+      border-radius: var(--border-radius-large);
+      font-size: 18px;
+      box-shadow: 0 10px 30px var(--shadow-dark);
+      z-index: 9999;
+      display: none;
+      color: var(--white);
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    }
+
+    .popup-happy {
+      background: linear-gradient(135deg, var(--success-green) 0%, #20a038 100%);
+    }
+
+    .popup-sad {
+      background: linear-gradient(135deg, var(--error-red) 0%, #c82333 100%);
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    footer {
+      margin-top: auto;
+      width: 100%;
+      text-align: center;
+      padding: 20px 0;
+      position: relative;
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .footer-logo {
+      width: 200px;
+      height: auto;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .copyright-text {
+      position: absolute;
+      right: 15px;
+      bottom: 8px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .lang-switch {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--white);
+      font-weight: 500;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.3);
+      transition: var(--transition-slow);
+      border-radius: 26px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--white);
+      transition: var(--transition-slow);
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    input:checked + .slider {
+      background-color: rgba(33, 150, 243, 0.8);
+      border-color: #2196F3;
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--white);
+      animation: spin 1s ease-in-out infinite;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      color: #ff6b6b;
+      font-size: 14px;
+      margin-top: 5px;
+      display: none;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      main {
+        padding: 15px;
+      }
+
+      .mood {
+        gap: 30px;
+      }
+
+      .form-section {
+        padding: 20px 15px;
+        margin: 15px;
+      }
+
+      .input-group {
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      input[type="text"], select {
+        width: 100%;
+        max-width: 250px;
+      }
+
+      .lang-switch {
+        top: 15px;
+        right: 15px;
+        font-size: 12px;
+      }
+
+      .copyright-text {
+        position: static;
+        margin-top: 10px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .form-section {
+        margin: 10px;
+        padding: 15px 10px;
+      }
+      
+      .footer-logo {
+        width: 150px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <!-- Language Switch -->
+    <div class="lang-switch">
+      <span>EN</span>
+      <label class="switch">
+        <input type="checkbox" id="langToggle" checked>
+        <span class="slider"></span>
+      </label>
+      <span>BN</span>
+    </div>
+
+    <h2 id="mainTitle">আজ আপনি কেমন অনুভব করছেন?</h2>
+
+    <form id="feedbackForm" method="POST" action="submit_agl.php" novalidate>
+      <div class="mood">
+        <div class="mood-option" onclick="selectMood('happy')" role="button" tabindex="0" aria-label="Happy mood">
+          <img src="happy.png" alt="Happy face" id="happyIcon">
+          <div class="mood-label" id="happyLabel">খুশি</div>
+        </div>
+        <div class="mood-option" onclick="selectMood('sad')" role="button" tabindex="0" aria-label="Sad mood">
+          <img src="sad.png" alt="Sad face" id="sadIcon">
+          <div class="mood-label" id="sadLabel">দুঃখিত</div>
+        </div>
+      </div>
+      
+      <input type="hidden" name="mood" id="mood" required>
+      
+      <div class="hidden" id="empInput">
+        <div class="form-section">
+          <h3 id="formTitle">আপনার বিভাগ এবং কর্মচারী আইডি লিখুন:</h3>
+          
+          <div class="input-group">
+            <select id="department" required aria-label="Department selection">
+              <option value="" disabled selected>বিভাগ</option>
+              <option value="AGIT">AGIT</option>
+              <option value="AGHR">AGHR</option>
+              <option value="AGHK">AGHK</option>
+            </select>
+
+            <input type="text" 
+                   id="empNumber" 
+                   placeholder="1234" 
+                   required 
+                   pattern="[0-9]+" 
+                   maxlength="6"
+                   aria-label="Employee ID number">
+          </div>
+          
+          <div class="error-message" id="errorMessage">অনুগ্রহ করে সব ক্ষেত্র পূরণ করুন</div>
+          
+          <input type="hidden" name="emp_id" id="emp_id">
+          
+          <button type="submit" class="submit-btn" id="submitBtn">
+            <span id="submitText">জমা দিন</span>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Popups -->
+    <div id="popupHappy" class="popup popup-happy" role="alert">
+      😊 ধন্যবাদ! আপনি ভালো আছেন জেনে আমরা খুশি।
+    </div>
+    <div id="popupSad" class="popup popup-sad" role="alert">
+      😟 প্রতিক্রিয়ার জন্য ধন্যবাদ। আশা করি আপনার দিন ভালো যাবে!
+    </div>
+  </main>
+
+  <footer>
+    <img src="com.png" alt="Company Logo" class="footer-logo">
+    <div class="copyright-text">© 2025 Developed By ANANTA ICT Team</div>
+  </footer>
+
+  <script>
+    // Application state
+    const AppState = {
+      selectedMood: null,
+      isSubmitting: false,
+      currentLanguage: 'bn'
+    };
+
+    // Language translations
+    const translations = {
+      en: {
+        mainTitle: "How are you feeling today?",
+        formTitle: "Enter your Department and Employee ID:",
+        deptPlaceholder: "Dept",
+        submitText: "Submit",
+        happyLabel: "Happy",
+        sadLabel: "Sad",
+        happyPopup: "😊 Thank you! We're glad you're feeling good.",
+        sadPopup: "😟 Thanks for your feedback. Hope your day gets better!",
+        errorMessage: "Please fill in all fields",
+        submittingText: "Submitting...",
+        networkError: "Network error. Please check your connection.",
+        serverError: "Server error. Please try again later.",
+        validationError: "Please enter a valid employee ID (numbers only).",
+        missingFields: "Please select your mood and fill in all fields."
+      },
+      bn: {
+        mainTitle: "আজ আপনি কেমন অনুভব করছেন?",
+        formTitle: "আপনার বিভাগ এবং কর্মচারী আইডি লিখুন:",
+        deptPlaceholder: "বিভাগ",
+        submitText: "জমা দিন",
+        happyLabel: "খুশি",
+        sadLabel: "দুঃখিত",
+        happyPopup: "😊 ধন্যবাদ! আপনি ভালো আছেন জেনে আমরা খুশি।",
+        sadPopup: "😟 প্রতিক্রিয়ার জন্য ধন্যবাদ। আশা করি আপনার দিন ভালো যাবে!",
+        errorMessage: "অনুগ্রহ করে সব ক্ষেত্র পূরণ করুন",
+        submittingText: "জমা দিচ্ছি...",
+        networkError: "নেটওয়ার্ক সমস্যা। অনুগ্রহ করে আপনার সংযোগ পরীক্ষা করুন।",
+        serverError: "সার্ভার সমস্যা। অনুগ্রহ করে পরে আবার চেষ্টা করুন।",
+        validationError: "অনুগ্রহ করে একটি বৈধ কর্মচারী আইডি লিখুন (শুধুমাত্র সংখ্যা)।",
+        missingFields: "অনুগ্রহ করে আপনার মুড নির্বাচন করুন এবং সব ক্ষেত্র পূরণ করুন।"
+      }
+    };
+
+    // Utility functions
+    const utils = {
+      showElement: (element) => element.classList.remove('hidden'),
+      hideElement: (element) => element.classList.add('hidden'),
+      
+      showError: (message) => {
+        const errorElement = document.getElementById('errorMessage');
+        errorElement.textContent = message;
+        errorElement.style.display = 'block';
+        setTimeout(() => errorElement.style.display = 'none', 5000);
+      },
+
+      validateForm: () => {
+        const dept = document.getElementById('department').value;
+        const empId = document.getElementById('empNumber').value.trim();
+        const mood = AppState.selectedMood;
+
+        if (!mood || !dept || !empId) {
+          utils.showError(translations[AppState.currentLanguage].missingFields);
+          return false;
+        }
+
+        if (!/^\d+$/.test(empId)) {
+          utils.showError(translations[AppState.currentLanguage].validationError);
+          return false;
+        }
+
+        return true;
+      },
+
+      setSubmitButtonState: (isLoading) => {
+        const btn = document.getElementById('submitBtn');
+        const text = document.getElementById('submitText');
+        
+        if (isLoading) {
+          btn.disabled = true;
+          btn.style.opacity = '0.7';
+          text.innerHTML = `${translations[AppState.currentLanguage].submittingText} <span class="loading"></span>`;
+        } else {
+          btn.disabled = false;
+          btn.style.opacity = '1';
+          text.textContent = translations[AppState.currentLanguage].submitText;
+        }
+      }
+    };
+
+    // Mood selection
+    function selectMood(mood) {
+      AppState.selectedMood = mood;
+      document.getElementById('mood').value = mood;
+
+      // Update UI
+      document.getElementById('happyIcon').parentElement.classList.remove('selected');
+      document.getElementById('sadIcon').parentElement.classList.remove('selected');
+
+      if (mood === 'happy') {
+        document.getElementById('happyIcon').parentElement.classList.add('selected');
+      } else {
+        document.getElementById('sadIcon').parentElement.classList.add('selected');
+      }
+
+      utils.showElement(document.getElementById('empInput'));
+    }
+
+    // Form submission
+    document.getElementById('feedbackForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    if (AppState.isSubmitting || !utils.validateForm()) {
+        return;
+    }
+
+    AppState.isSubmitting = true;
+    utils.setSubmitButtonState(true);
+
+    try {
+        const dept = document.getElementById('department').value;
+        const idNum = document.getElementById('empNumber').value.trim();
+        const fullId = `${dept}-${idNum}`;
+        document.getElementById('emp_id').value = fullId;
+
+        const formData = new FormData(this);
+        
+        const response = await fetch(this.action, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(translations[AppState.currentLanguage].serverError);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            // Show success popup
+            const popup = AppState.selectedMood === 'happy' 
+                ? document.getElementById('popupHappy')
+                : document.getElementById('popupSad');
+            
+            popup.style.display = 'block';
+
+            // Auto-hide popup and reset form
+            setTimeout(() => {
+                popup.style.display = 'none';
+                location.reload();
+            }, 5000);
+        } else {
+            throw new Error(result.message || translations[AppState.currentLanguage].serverError);
+        }
+    } catch (error) {
+        console.error('Submission error:', error);
+        utils.showError(error.message);
+    } finally {
+        AppState.isSubmitting = false;
+        utils.setSubmitButtonState(false);
+    }
+});
+
+    // Language switching
+    function updateLanguage(isBangla) {
+      AppState.currentLanguage = isBangla ? 'bn' : 'en';
+      const t = translations[AppState.currentLanguage];
+
+      // Update all text elements
+      document.getElementById('mainTitle').textContent = t.mainTitle;
+      document.getElementById('formTitle').textContent = t.formTitle;
+      document.getElementById('department').options[0].text = t.deptPlaceholder;
+      document.getElementById('submitText').textContent = t.submitText;
+      document.getElementById('happyLabel').textContent = t.happyLabel;
+      document.getElementById('sadLabel').textContent = t.sadLabel;
+      document.getElementById('popupHappy').textContent = t.happyPopup;
+      document.getElementById('popupSad').textContent = t.sadPopup;
+      document.getElementById('errorMessage').textContent = t.errorMessage;
+    }
+
+    document.getElementById('langToggle').addEventListener('change', function () {
+      updateLanguage(this.checked);
+    });
+
+    // Keyboard accessibility
+    document.querySelectorAll('.mood-option').forEach(option => {
+      option.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          this.click();
+        }
+      });
+    });
+
+    // Input validation
+    document.getElementById('empNumber').addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      updateLanguage(document.getElementById('langToggle').checked);
+    });
+  </script>
+</body>
+
+</html>
