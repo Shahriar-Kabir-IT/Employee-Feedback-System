@@ -741,7 +741,7 @@ try {
                                             <form method="POST" action="" style="display: inline-block;">
                                                 <input type="hidden" name="employee_id" value="<?php echo $case['employee_id']; ?>">
                                                 <button type="submit" name="assign_to_me" class="action-btn success-btn">
-                                                    Assign to Me
+                                                    Acknowledged
                                                 </button>
                                             </form>
                                         <?php else: ?>
