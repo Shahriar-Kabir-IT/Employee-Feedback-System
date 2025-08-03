@@ -122,13 +122,17 @@ try {
                (SELECT GROUP_CONCAT(CONCAT(step_name, ': ', notes) SEPARATOR '\n\n') 
                 FROM resolution_steps 
                 WHERE employee_id = f.employee_id) as resolution_details,
-               (SELECT full_name FROM welfare_admins WHERE id = f.assigned_admin_id) as resolved_by
+               (SELECT full_name FROM welfare_admins WHERE id = f.assigned_admin_id) as resolved_by,
+               severity, issue_type, is_repeated, escalated_to
         FROM feedback_abm f
         WHERE f.resolved = 1 AND f.assigned_admin_id = ?
         ORDER BY f.resolution_timestamp DESC
     ");
     $stmt->execute([$admin_id]);
     $resolved_cases = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get all issue types for dropdown
+    $issue_types = $pdo->query("SELECT * FROM issue_types")->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
     die("Database error: " . $e->getMessage());
 }
@@ -140,7 +144,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Welfare Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-     <style>
+    <style>
         :root {
             --primary-blue: #2d8fd4;
             --accent-blue: #1ea2fa;
@@ -159,6 +163,10 @@ try {
             --border-radius-large: 12px;
             --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             --transition-fast: 0.2s;
+            --critical: #dc3545;
+            --high: #fd7e14;
+            --moderate: #ffc107;
+            --low: #28a745;
         }
 
         * {
@@ -407,6 +415,24 @@ try {
             background-color: #218838;
         }
 
+        .warning-btn {
+            background-color: var(--warning-orange);
+            color: var(--dark-text);
+        }
+
+        .warning-btn:hover {
+            background-color: #e0a800;
+        }
+
+        .danger-btn {
+            background-color: var(--error-red);
+            color: white;
+        }
+
+        .danger-btn:hover {
+            background-color: #c82333;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -513,6 +539,35 @@ try {
             color: #721c24;
         }
 
+        .badge-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .badge-critical {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #721c24;
+        }
+
+        .badge-high {
+            background-color: #ffe3cd;
+            color: #a04100;
+            border: 1px solid #a04100;
+        }
+
+        .badge-moderate {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #856404;
+        }
+
+        .badge-low {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #155724;
+        }
+
         .tab-content {
             display: none;
         }
@@ -527,6 +582,17 @@ try {
             background-color: var(--light-gray);
             border-radius: var(--border-radius);
             margin-top: 10px;
+        }
+
+        .issue-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: var(--light-gray);
+            border-radius: var(--border-radius);
+        }
+
+        .issue-info p {
+            margin-bottom: 5px;
         }
 
         @media (max-width: 1200px) {
@@ -737,6 +803,12 @@ try {
                                                 onclick="openActionModal('<?php echo $case['employee_id']; ?>', <?php echo $progress; ?>)">
                                                 Take Action
                                             </button>
+                                            <?php if ($progress >= 75): ?>
+                                                <button class="action-btn warning-btn"
+                                                    onclick="openEscalateModal('<?php echo $case['employee_id']; ?>')">
+                                                    Escalate
+                                                </button>
+                                            <?php endif; ?>
                                         <?php elseif ($is_unassigned): ?>
                                             <form method="POST" action="" style="display: inline-block;">
                                                 <input type="hidden" name="employee_id" value="<?php echo $case['employee_id']; ?>">
@@ -841,6 +913,12 @@ try {
                                                 onclick="openActionModal('<?php echo $employee['employee_id']; ?>', <?php echo $progress; ?>)">
                                                 Take Action
                                             </button>
+                                            <?php if ($progress >= 75): ?>
+                                                <button class="action-btn warning-btn"
+                                                    onclick="openEscalateModal('<?php echo $employee['employee_id']; ?>')">
+                                                    Escalate
+                                                </button>
+                                            <?php endif; ?>
                                         <?php elseif ($is_unassigned): ?>
                                             <form method="POST" action="" style="display: inline-block;">
                                                 <input type="hidden" name="employee_id" value="<?php echo $employee['employee_id']; ?>">
@@ -874,6 +952,7 @@ try {
                                 <th>Employee ID</th>
                                 <th>Reported At</th>
                                 <th>Resolved At</th>
+                                <th>Issue Details</th>
                                 <th>Resolution Details</th>
                             </tr>
                         </thead>
@@ -883,6 +962,24 @@ try {
                                     <td><?php echo htmlspecialchars($case['employee_id']); ?></td>
                                     <td><?php echo date('M j, Y g:i A', strtotime($case['timestamp'])); ?></td>
                                     <td><?php echo date('M j, Y g:i A', strtotime($case['resolution_timestamp'])); ?></td>
+                                    <td>
+                                        <?php if ($case['severity']): ?>
+                                            <div class="issue-info">
+                                                <p><strong>Severity:</strong> 
+                                                    <span class="badge badge-<?php echo $case['severity']; ?>">
+                                                        <?php echo ucfirst($case['severity']); ?>
+                                                    </span>
+                                                </p>
+                                                <p><strong>Type:</strong> <?php echo ucwords(str_replace('_', ' ', $case['issue_type'])); ?></p>
+                                                <p><strong>Repeated:</strong> <?php echo $case['is_repeated'] ? 'Yes' : 'No'; ?></p>
+                                                <?php if ($case['escalated_to']): ?>
+                                                    <p><strong>Escalated to:</strong> <?php echo ucwords(str_replace('_', ' ', $case['escalated_to'])); ?></p>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php else: ?>
+                                            No assessment data
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <button class="action-btn primary-btn"
                                             onclick="toggleResolutionDetails('details-<?php echo $case['id']; ?>')">
@@ -896,7 +993,7 @@ try {
                             <?php endforeach; ?>
                             <?php if (empty($resolved_cases)): ?>
                                 <tr>
-                                    <td colspan="4" style="text-align: center;">No resolved cases found</td>
+                                    <td colspan="5" style="text-align: center;">No resolved cases found</td>
                                 </tr>
                             <?php endif; ?>
                         </tbody>
@@ -926,6 +1023,40 @@ try {
                     </select>
                 </div>
 
+                <!-- Assessment fields (shown only for 30% action) -->
+                <div id="assessmentFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="severityLevel">Severity Level</label>
+                        <select name="severity" id="severityLevel" required>
+                            <option value="">Select severity</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="moderate">Moderate</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="issueType">Issue Type</label>
+                        <select name="issue_type" id="issueType" required>
+                            <option value="">Select issue type</option>
+                            <?php foreach ($issue_types as $type): ?>
+                                <option value="<?php echo htmlspecialchars($type['name']); ?>">
+                                    <?php echo htmlspecialchars(ucwords(str_replace('_', ' ', $type['name']))); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="isRepeated">Is this a repeated issue?</label>
+                        <select name="is_repeated" id="isRepeated" required>
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="actionNotes">Notes (Required)</label>
                     <textarea name="action_notes" id="actionNotes" placeholder="Enter details about this action..." required></textarea>
@@ -939,11 +1070,40 @@ try {
         </div>
     </div>
 
+    <!-- Escalate Modal -->
+    <div class="modal" id="escalateModal">
+        <div class="modal-content">
+            <h3 class="modal-title">Escalate Case</h3>
+            <form id="escalateForm" method="POST" action="escalate_case.php">
+                <input type="hidden" name="employee_id" id="escalateEmployeeId">
+                <input type="hidden" name="admin_id" value="<?php echo $admin_id; ?>">
+
+                <div class="form-group">
+                    <label for="escalateTo">Escalate To</label>
+                    <select name="escalate_to" id="escalateTo" required>
+                        <option value="">Select recipient</option>
+                        <option value="issue_resolution_committee">Issue Resolution Committee</option>
+                        <option value="head_of_hr">Head of HR</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="escalationReason">Reason for Escalation</label>
+                    <textarea name="escalation_reason" id="escalationReason" placeholder="Explain why this case needs escalation..." required></textarea>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeEscalateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Escalate Case</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openActionModal(employeeId, currentProgress) {
             document.getElementById('modalEmployeeId').value = employeeId;
 
-            // Disable already completed steps
             const stepSelect = document.getElementById('actionStep');
             const options = stepSelect.options;
 
@@ -954,6 +1114,9 @@ try {
                     option.disabled = percent <= currentProgress;
                     if (percent === currentProgress + 10) {
                         option.selected = true;
+                        // Trigger change event to show/hide assessment fields
+                        const event = new Event('change');
+                        stepSelect.dispatchEvent(event);
                     }
                 }
             }
@@ -965,10 +1128,37 @@ try {
             document.getElementById('actionModal').style.display = 'none';
         }
 
+        function openEscalateModal(employeeId) {
+            document.getElementById('escalateEmployeeId').value = employeeId;
+            document.getElementById('escalateModal').style.display = 'flex';
+        }
+
+        function closeEscalateModal() {
+            document.getElementById('escalateModal').style.display = 'none';
+        }
+
         function toggleResolutionDetails(detailsId) {
             const details = document.getElementById(detailsId);
             details.style.display = details.style.display === 'none' ? 'block' : 'none';
         }
+
+        // Show/hide assessment fields based on selected action
+        document.getElementById('actionStep').addEventListener('change', function() {
+            const assessmentFields = document.getElementById('assessmentFields');
+            if (this.value === 'Talked with the employee') {
+                assessmentFields.style.display = 'block';
+                // Make fields required
+                document.getElementById('severityLevel').required = true;
+                document.getElementById('issueType').required = true;
+                document.getElementById('isRepeated').required = true;
+            } else {
+                assessmentFields.style.display = 'none';
+                // Remove required attribute
+                document.getElementById('severityLevel').required = false;
+                document.getElementById('issueType').required = false;
+                document.getElementById('isRepeated').required = false;
+            }
+        });
 
         // Close modal when clicking outside
         window.onclick = function(event) {
@@ -976,22 +1166,25 @@ try {
             if (event.target === modal) {
                 closeModal();
             }
+
+            const escalateModal = document.getElementById('escalateModal');
+            if (event.target === escalateModal) {
+                closeEscalateModal();
+            }
         };
 
-        // Handle form submission
-        document.getElementById('actionForm').addEventListener('submit', function(e) {
-            e.preventDefault();
+        // Handle form submissions
+        function submitForm(form, actionUrl) {
+            const formData = new FormData(form);
 
-            const formData = new FormData(this);
-
-            fetch(this.action, {
+            fetch(actionUrl, {
                     method: 'POST',
                     body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        alert('Action recorded successfully!');
+                        alert(data.message || 'Action completed successfully!');
                         location.reload();
                     } else {
                         alert('Error: ' + (data.message || 'Unknown error occurred'));
@@ -1001,6 +1194,16 @@ try {
                     console.error('Error:', error);
                     alert('Network error occurred');
                 });
+        }
+
+        document.getElementById('actionForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitForm(this, 'take_action.php');
+        });
+
+        document.getElementById('escalateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitForm(this, 'escalate_case.php');
         });
     </script>
 </body>

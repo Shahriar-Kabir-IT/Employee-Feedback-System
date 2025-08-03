@@ -14,9 +14,12 @@ if (!isset($_SESSION['welfare_admin'])) {
 $employee_id = isset($_POST['employee_id']) ? trim($_POST['employee_id']) : '';
 $action_step = isset($_POST['action_step']) ? trim($_POST['action_step']) : '';
 $action_notes = isset($_POST['action_notes']) ? trim($_POST['action_notes']) : '';
+$severity = isset($_POST['severity']) ? trim($_POST['severity']) : null;
+$issue_type = isset($_POST['issue_type']) ? trim($_POST['issue_type']) : null;
+$is_repeated = isset($_POST['is_repeated']) ? (int)$_POST['is_repeated'] : 0;
 $admin_id = $_SESSION['welfare_admin']['id'];
 
-if (empty($employee_id) || empty($action_step)) {
+if (empty($employee_id) || empty($action_step) || empty($action_notes)) {
     header('Content-Type: application/json');
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Missing required fields']);
@@ -35,6 +38,35 @@ $percentage_map = [
 $step_percentage = $percentage_map[$action_step] ?? 0;
 
 try {
+    // Get current progress from database
+    $stmt = $pdo->prepare("SELECT resolution_progress FROM feedback_abm WHERE employee_id = ?");
+    $stmt->execute([$employee_id]);
+    $current_progress = $stmt->fetchColumn();
+    
+    // Validate step progression
+    $required_min_progress = 0;
+    switch ($action_step) {
+        case 'Talked with the employee':
+            $required_min_progress = 0; // Can always start with first step
+            break;
+        case 'Finding Problem':
+            $required_min_progress = 30;
+            break;
+        case 'Taking action':
+            $required_min_progress = 40;
+            break;
+        case 'Give Support':
+            $required_min_progress = 60;
+            break;
+        case 'Followup':
+            $required_min_progress = 70;
+            break;
+    }
+    
+    if ($current_progress < $required_min_progress) {
+        throw new Exception('You must complete previous steps before taking this action');
+    }
+    
     // Start transaction
     $pdo->beginTransaction();
     
@@ -46,24 +78,42 @@ try {
     ");
     $stmt->execute([$employee_id, $action_step, $step_percentage, $action_notes, $admin_id]);
     
-    // Update the feedback record - removed the auto-resolve at 75%
-    $stmt = $pdo->prepare("
-        UPDATE feedback_abm 
-        SET resolution_progress = ?, 
-            last_resolution_step = ?
-        WHERE employee_id = ?
-    ");
-    $stmt->execute([$step_percentage, $action_step, $employee_id]);
+    // If this is the "Talked with employee" step (30%), update severity and issue type
+    if ($action_step === 'Talked with the employee') {
+        if (empty($severity) || empty($issue_type)) {
+            throw new Exception('Severity level and issue type are required for this step');
+        }
+        
+        $stmt = $pdo->prepare("
+            UPDATE feedback_abm 
+            SET resolution_progress = ?,
+                last_resolution_step = ?,
+                severity = ?,
+                issue_type = ?,
+                is_repeated = ?
+            WHERE employee_id = ?
+        ");
+        $stmt->execute([$step_percentage, $action_step, $severity, $issue_type, $is_repeated, $employee_id]);
+    } else {
+        // For other steps, just update progress
+        $stmt = $pdo->prepare("
+            UPDATE feedback_abm 
+            SET resolution_progress = ?,
+                last_resolution_step = ?
+            WHERE employee_id = ?
+        ");
+        $stmt->execute([$step_percentage, $action_step, $employee_id]);
+    }
     
     $pdo->commit();
     
     header('Content-Type: application/json');
-    echo json_encode(['success' => true]);
+    echo json_encode(['success' => true, 'message' => 'Action recorded successfully']);
     
-} catch (PDOException $e) {
+} catch (Exception $e) {
     $pdo->rollBack();
     header('Content-Type: application/json');
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>

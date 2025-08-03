@@ -14,6 +14,9 @@ if (!isset($_SESSION['welfare_admin'])) {
 $employee_id = isset($_POST['employee_id']) ? trim($_POST['employee_id']) : '';
 $action_step = isset($_POST['action_step']) ? trim($_POST['action_step']) : '';
 $action_notes = isset($_POST['action_notes']) ? trim($_POST['action_notes']) : '';
+$severity = isset($_POST['severity']) ? trim($_POST['severity']) : null;
+$issue_type = isset($_POST['issue_type']) ? trim($_POST['issue_type']) : null;
+$is_repeated = isset($_POST['is_repeated']) ? (int)$_POST['is_repeated'] : 0;
 $admin_id = $_SESSION['welfare_admin']['id'];
 
 if (empty($employee_id) || empty($action_step)) {
@@ -46,24 +49,42 @@ try {
     ");
     $stmt->execute([$employee_id, $action_step, $step_percentage, $action_notes, $admin_id]);
     
-    // Update the feedback record - removed the auto-resolve at 75%
-    $stmt = $pdo->prepare("
-        UPDATE feedback_ajl
-        SET resolution_progress = ?, 
-            last_resolution_step = ?
-        WHERE employee_id = ?
-    ");
-    $stmt->execute([$step_percentage, $action_step, $employee_id]);
+    // If this is the "Talked with employee" step (30%), update severity and issue type
+    if ($action_step === 'Talked with the employee') {
+        if (empty($severity) || empty($issue_type)) {
+            throw new Exception('Severity level and issue type are required for this step');
+        }
+        
+        $stmt = $pdo->prepare("
+            UPDATE feedback_ajl
+            SET resolution_progress = ?,
+                last_resolution_step = ?,
+                severity = ?,
+                issue_type = ?,
+                is_repeated = ?
+            WHERE employee_id = ?
+        ");
+        $stmt->execute([$step_percentage, $action_step, $severity, $issue_type, $is_repeated, $employee_id]);
+    } else {
+        // For other steps, just update progress
+        $stmt = $pdo->prepare("
+            UPDATE feedback_ajl
+            SET resolution_progress = ?,
+                last_resolution_step = ?
+            WHERE employee_id = ?
+        ");
+        $stmt->execute([$step_percentage, $action_step, $employee_id]);
+    }
     
     $pdo->commit();
     
     header('Content-Type: application/json');
     echo json_encode(['success' => true]);
     
-} catch (PDOException $e) {
+} catch (Exception $e) {
     $pdo->rollBack();
     header('Content-Type: application/json');
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
 }
 ?>

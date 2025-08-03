@@ -99,7 +99,7 @@ function redirectToDashboard($location) {
         }
 
         body {
-            background-color: var(--light-gray);
+            background-color: #086ac5ff;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -180,7 +180,7 @@ function redirectToDashboard($location) {
 <body>
     <div class="login-container">
         <div class="company-logo">
-            <img src="com.png" alt="Company Logo">
+            <img src="logo.png" alt="Company Logo">
         </div>
         
         <h1 class="login-title">Welfare Admin Login</h1>
